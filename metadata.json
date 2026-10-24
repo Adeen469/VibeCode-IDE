@@ -1,0 +1,6 @@
+{
+  "name": "VibeCode IDE - Multi-Model Collaborative AI Studio",
+  "description": "Local-first collaborative IDE for vibe coders to orchestrate multiple AI models as a team with P2P WebRTC sharing and granular permissions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
