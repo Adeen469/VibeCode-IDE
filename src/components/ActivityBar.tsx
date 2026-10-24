@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 
 interface ActivityBarProps {
@@ -29,18 +30,24 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
   peersCount,
 }) => {
   const topNavItems = [
+    {
+      id: 'agent',
+      label: 'AI Agent (Solo Vibe Coder) (Ctrl+L)',
+      icon: Sparkles,
+      isSpecial: true,
+    },
     { id: 'explorer', label: 'Explorer (Ctrl+Shift+E)', icon: Files },
     { id: 'search', label: 'Search (Ctrl+Shift+F)', icon: Search },
     { id: 'git', label: 'Source Control (Ctrl+Shift+G)', icon: GitBranch },
     {
       id: 'models',
-      label: 'AI Team Orchestration',
+      label: 'Multi-Model Team Orchestration',
       icon: Bot,
       badge: activeModelsCount,
     },
     {
       id: 'p2p',
-      label: 'P2P Collaboration & Granular Grants',
+      label: 'P2P Team Collaboration & Grants',
       icon: Users,
       badge: peersCount,
     },
@@ -63,7 +70,11 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
               title={item.label}
               className={`relative w-10 h-10 flex items-center justify-center rounded-md transition-colors ${
                 isActive
-                  ? 'text-white bg-neutral-800/80 shadow-sm'
+                  ? item.id === 'agent'
+                    ? 'text-sky-300 bg-sky-950/80 shadow-sm border border-sky-800/60'
+                    : 'text-white bg-neutral-800/80 shadow-sm'
+                  : item.id === 'agent'
+                  ? 'text-sky-400 hover:text-sky-200 hover:bg-neutral-800/40'
                   : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/40'
               }`}
             >

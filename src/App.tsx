@@ -34,6 +34,10 @@ export default function App() {
       } else if (isCmdOrCtrl && e.key === 's') {
         e.preventDefault();
         store.saveActiveFile();
+      } else if (isCmdOrCtrl && e.key === 'l') {
+        e.preventDefault();
+        store.setActiveSidebarTab('agent');
+        store.setIsSidebarCollapsed(false);
       } else if (isCmdOrCtrl && e.key === '`') {
         e.preventDefault();
         store.setIsBottomPanelCollapsed(false);
@@ -168,6 +172,14 @@ export default function App() {
             onSetSearchQuery={store.setSearchQuery}
             replaceQuery={store.replaceQuery}
             onSetReplaceQuery={store.setReplaceQuery}
+            soloAgentMode={store.soloAgentMode}
+            onSetSoloAgentMode={store.setSoloAgentMode}
+            soloAgentMessages={store.soloAgentMessages}
+            isAgentRunning={store.isAgentRunning}
+            onRunSoloAgentTask={store.runSoloAgentTask}
+            onApplyAgentDiff={store.applyAgentDiff}
+            onClearSoloAgentSession={store.clearSoloAgentSession}
+            activeFileName={store.activeFile?.name}
           />
         )}
 

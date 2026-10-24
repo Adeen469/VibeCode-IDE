@@ -1,5 +1,5 @@
 import React from 'react';
-import { Command, Search, ShieldCheck } from 'lucide-react';
+import { Command, Search, ShieldCheck, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   onOpenCommandPalette: () => void;
@@ -23,6 +23,17 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 2: 4-5 single-line navigation tabs / triggers */}
       <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-neutral-400">
+        <button
+          onClick={() => onSelectNav('agent')}
+          className={`flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+            activeNav === 'agent'
+              ? 'text-sky-300 font-semibold'
+              : 'hover:text-white text-sky-400/90'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+          <span>AI Agent</span>
+        </button>
         <button
           onClick={() => onSelectNav('explorer')}
           className={`hover:text-white transition-colors whitespace-nowrap shrink-0 ${

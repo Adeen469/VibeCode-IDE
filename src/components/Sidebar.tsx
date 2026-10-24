@@ -34,6 +34,10 @@ import {
   FlaskConical,
   Code2,
   File,
+  Send,
+  RotateCcw,
+  AlertCircle,
+  Play,
 } from 'lucide-react';
 import {
   FileItem,
@@ -43,6 +47,9 @@ import {
   Peer,
   ModelGrant,
   ModelRole,
+  SoloAgentMode,
+  SoloAgentMessage,
+  SoloAgentStep,
 } from '../types';
 import { getDatabaseTablesOverview } from '../utils/sql-schema';
 
@@ -78,6 +85,15 @@ interface SidebarProps {
   onSetSearchQuery: (q: string) => void;
   replaceQuery: string;
   onSetReplaceQuery: (q: string) => void;
+  // Solo Agent Props (for Single Person Use)
+  soloAgentMode: SoloAgentMode;
+  onSetSoloAgentMode: (mode: SoloAgentMode) => void;
+  soloAgentMessages: SoloAgentMessage[];
+  isAgentRunning: boolean;
+  onRunSoloAgentTask: (instruction: string, mode?: SoloAgentMode) => void;
+  onApplyAgentDiff: (msgId: string) => void;
+  onClearSoloAgentSession: () => void;
+  activeFileName?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -112,6 +128,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSetSearchQuery,
   replaceQuery,
   onSetReplaceQuery,
+  soloAgentMode,
+  onSetSoloAgentMode,
+  soloAgentMessages,
+  isAgentRunning,
+  onRunSoloAgentTask,
+  onApplyAgentDiff,
+  onClearSoloAgentSession,
+  activeFileName,
 }) => {
   // Local state for modals and forms
   const [newFileName, setNewFileName] = useState('');
@@ -122,6 +146,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     'f-root': true,
     'f-src': true,
   });
+
+  // Solo Agent input state
+  const [soloAgentInput, setSoloAgentInput] = useState('');
+  const agentScrollEndRef = useRef<HTMLDivElement>(null);
 
   // Right-click context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -150,6 +178,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom of agent messages when updated
+  useEffect(() => {
+    if (activeTab === 'agent') {
+      agentScrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [soloAgentMessages, isAgentRunning, activeTab]);
 
   // Close context menu on outside click or escape
   useEffect(() => {
@@ -200,7 +235,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
-    // Clamp inside viewport
     const menuWidth = 230;
     const menuHeight = item.isDirectory ? 260 : 380;
     const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
@@ -214,7 +248,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
-  // Start inline rename
   const handleStartRename = (item: FileItem) => {
     setRenameTarget({
       id: item.id,
@@ -225,7 +258,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setContextMenu(null);
   };
 
-  // Submit inline rename
   const handleConfirmRename = () => {
     if (renameTarget && renameValue.trim()) {
       onRenameItem(renameTarget.id, renameValue.trim());
@@ -233,6 +265,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     setRenameTarget(null);
     setRenameValue('');
+  };
+
+  const handleSoloAgentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!soloAgentInput.trim() || isAgentRunning) return;
+    onRunSoloAgentTask(soloAgentInput.trim());
+    setSoloAgentInput('');
   };
 
   // Render Recursive File Tree
@@ -282,7 +321,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </div>
 
-              {/* Quick Hover Add Button */}
               <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={(e) => {
@@ -362,8 +400,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
+  const activeModel = models.find((m) => m.id === leadModelId) || models[0];
+
   return (
-    <div className="w-72 bg-[#18181b] border-r border-neutral-800 flex flex-col h-full shrink-0 select-none overflow-hidden relative">
+    <div className="w-80 md:w-88 bg-[#18181b] border-r border-neutral-800 flex flex-col h-full shrink-0 select-none overflow-hidden relative">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="absolute top-11 left-3 right-3 z-40 bg-neutral-900 border border-sky-600/80 text-sky-300 text-xs py-1.5 px-3 rounded shadow-lg flex items-center justify-between animate-fade-in font-mono">
@@ -374,7 +414,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Header */}
       <div className="h-9 px-3 border-b border-neutral-800 flex items-center justify-between shrink-0">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 truncate">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 truncate flex items-center gap-1.5">
+          {activeTab === 'agent' && (
+            <>
+              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-white">AI Agent (Solo Vibe Coder)</span>
+            </>
+          )}
           {activeTab === 'explorer' && 'Explorer: Workspace'}
           {activeTab === 'search' && 'Search in Workspace'}
           {activeTab === 'git' && 'Source Control'}
@@ -408,6 +454,249 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
+
+      {/* SOLO AI AGENT VIEW (Dedicated for Single Person Use) */}
+      {activeTab === 'agent' && (
+        <div className="flex-1 flex flex-col overflow-hidden text-xs font-mono select-text bg-[#161619]">
+          {/* Agent Control Header & Mode Tabs */}
+          <div className="p-2.5 bg-neutral-900/90 border-b border-neutral-800 space-y-2 select-none shrink-0">
+            {/* Top row: Model selector & Clear button */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <select
+                  value={leadModelId}
+                  onChange={(e) => onSetLeadModelId(e.target.value)}
+                  className="bg-black border border-neutral-700 rounded px-1.5 py-0.5 text-neutral-200 text-[11px] focus:outline-none focus:border-sky-500 font-mono truncate max-w-[190px]"
+                >
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.isLocal ? 'Local' : 'Cloud'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={onClearSoloAgentSession}
+                title="Clear Agent Session"
+                className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Mode Selector Buttons: Agent (Autonomous) | Chat (Q&A) | Edit (Direct Refactor) */}
+            <div className="grid grid-cols-3 gap-1 p-0.5 bg-black rounded border border-neutral-800 text-[11px]">
+              <button
+                onClick={() => onSetSoloAgentMode('agent')}
+                className={`py-1 rounded font-medium transition-colors text-center ${
+                  soloAgentMode === 'agent'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="Autonomous multi-step coding agent with tool use"
+              >
+                Agent
+              </button>
+              <button
+                onClick={() => onSetSoloAgentMode('chat')}
+                className={`py-1 rounded font-medium transition-colors text-center ${
+                  soloAgentMode === 'chat'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="Conversational code assistant & explanations"
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => onSetSoloAgentMode('edit')}
+                className={`py-1 rounded font-medium transition-colors text-center ${
+                  soloAgentMode === 'edit'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+                title="Fast targeted editing on active file"
+              >
+                Edit
+              </button>
+            </div>
+
+            {/* Context File Pill */}
+            <div className="flex items-center justify-between text-[10px] text-neutral-400 pt-0.5">
+              <span className="flex items-center gap-1 truncate text-sky-300">
+                <FileCode className="w-3 h-3 text-sky-400 shrink-0" />
+                <span className="truncate">Active: {activeFileName || 'src/main.ts'}</span>
+              </span>
+              <span className="text-[9px] uppercase tracking-wider text-neutral-500 font-bold">
+                Solo Coder
+              </span>
+            </div>
+          </div>
+
+          {/* Interactive Messages Stream */}
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-3">
+            {soloAgentMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`p-2.5 rounded-lg border text-xs leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-sky-950/40 border-sky-800/60 ml-2 text-neutral-100'
+                    : 'bg-neutral-900 border-neutral-800 mr-1 text-neutral-200'
+                }`}
+              >
+                <div className="flex items-center justify-between text-[10px] mb-1.5 pb-1 border-b border-neutral-800/60 text-neutral-400">
+                  <span className="font-semibold text-neutral-300 flex items-center gap-1">
+                    {msg.role === 'user' ? (
+                      'You'
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3 text-sky-400" /> AI Agent
+                      </>
+                    )}
+                  </span>
+                  <span className="tabular-nums">
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                {/* Agent Multi-Step Execution Plan & Tool Calling Timeline */}
+                {msg.steps && msg.steps.length > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-neutral-800 space-y-1.5">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-neutral-400">
+                      Execution Steps:
+                    </span>
+                    <div className="space-y-1">
+                      {msg.steps.map((st) => (
+                        <div
+                          key={st.id}
+                          className="flex items-start gap-1.5 text-[10px] p-1.5 bg-black/40 rounded border border-neutral-800/80"
+                        >
+                          {st.status === 'running' ? (
+                            <RefreshCw className="w-3 h-3 text-sky-400 animate-spin shrink-0 mt-0.5" />
+                          ) : st.status === 'completed' ? (
+                            <Check className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle className="w-3 h-3 text-rose-400 shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="font-semibold text-neutral-300 block truncate">
+                              {st.title}
+                            </span>
+                            {st.detail && (
+                              <span className="text-[10px] text-neutral-400 block break-words">
+                                {st.detail}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Code Diff Card with 1-Click Accept */}
+                {msg.codeDiff && (
+                  <div className="mt-2.5 pt-2 border-t border-neutral-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-sky-300 font-semibold truncate">
+                        Proposed Code: {msg.codeDiff.filePath}
+                      </span>
+                      {msg.codeDiff.accepted && (
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Applied to Editor
+                        </span>
+                      )}
+                    </div>
+
+                    <pre className="p-2 bg-black rounded border border-neutral-800 text-[10px] text-neutral-300 overflow-x-auto max-h-36 font-mono leading-relaxed">
+                      {msg.codeDiff.newCode.slice(0, 500)}
+                      {msg.codeDiff.newCode.length > 500 && '\n... (truncated preview)'}
+                    </pre>
+
+                    <div className="flex items-center gap-1.5 pt-1">
+                      {!msg.codeDiff.accepted && (
+                        <button
+                          onClick={() => onApplyAgentDiff(msg.id)}
+                          className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-medium transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Check className="w-3 h-3" /> Accept & Apply to Editor
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.codeDiff?.newCode || '');
+                          showToast('Code copied to clipboard');
+                        }}
+                        className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded text-[11px] font-medium"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {isAgentRunning && (
+              <div className="p-2 bg-neutral-900 border border-sky-900/60 rounded text-xs text-sky-400 flex items-center gap-2 animate-pulse">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>AI Agent is analyzing workspace & generating code...</span>
+              </div>
+            )}
+            <div ref={agentScrollEndRef} />
+          </div>
+
+          {/* Quick Action Suggestion Chips for Solo Coder */}
+          <div className="p-2 bg-[#141416] border-t border-neutral-800 shrink-0 space-y-1.5">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar text-[10px]">
+              <button
+                type="button"
+                onClick={() => onRunSoloAgentTask(`Refactor and optimize ${activeFileName || 'src/main.ts'} for zero-bloat compliance`)}
+                className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded whitespace-nowrap"
+              >
+                ⚡ Optimize
+              </button>
+              <button
+                type="button"
+                onClick={() => onRunSoloAgentTask(`Write edge-case unit test suite for ${activeFileName || 'src/main.ts'}`)}
+                className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded whitespace-nowrap"
+              >
+                🧪 Unit Tests
+              </button>
+              <button
+                type="button"
+                onClick={() => onRunSoloAgentTask(`Audit security vulnerabilities and memory leaks in ${activeFileName || 'src/main.ts'}`)}
+                className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded whitespace-nowrap"
+              >
+                🛡️ Security
+              </button>
+            </div>
+
+            {/* Input Form */}
+            <form onSubmit={handleSoloAgentSubmit} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={soloAgentInput}
+                onChange={(e) => setSoloAgentInput(e.target.value)}
+                placeholder="Ask agent to code, refactor, or test..."
+                disabled={isAgentRunning}
+                className="flex-1 px-2.5 py-1.5 bg-black border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 font-mono disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={!soloAgentInput.trim() || isAgentRunning}
+                className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:bg-neutral-800 text-white rounded text-xs font-medium transition-colors flex items-center justify-center shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Explorer View */}
       {activeTab === 'explorer' && (

@@ -42,6 +42,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const commands = [
     {
+      id: 'open-agent',
+      label: 'AI Agent: Open Solo Assistant (Ctrl+L)',
+      category: 'Agent',
+      icon: Sparkles,
+      action: () => onSelectSidebarTab('agent'),
+    },
+    {
       id: 'open-main',
       label: 'Open: src/main.ts',
       category: 'File',

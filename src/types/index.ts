@@ -141,3 +141,31 @@ export interface SecurityVaultStatus {
   storedKeysCount: number;
   lastAccessTime?: number;
 }
+
+export type SoloAgentMode = 'agent' | 'chat' | 'edit';
+
+export interface SoloAgentStep {
+  id: string;
+  type: 'think' | 'tool_call' | 'file_edit' | 'command_exec' | 'security_audit';
+  title: string;
+  status: 'running' | 'completed' | 'failed';
+  detail?: string;
+  diffCode?: string;
+  filePath?: string;
+}
+
+export interface SoloAgentMessage {
+  id: string;
+  role: 'user' | 'agent';
+  content: string;
+  timestamp: number;
+  model: string;
+  mode: SoloAgentMode;
+  steps?: SoloAgentStep[];
+  codeDiff?: {
+    filePath: string;
+    newCode: string;
+    accepted?: boolean;
+  };
+}
+
